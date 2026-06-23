@@ -48,7 +48,7 @@ export default function Integrations() {
                 <Input
                   value={webhookUrl}
                   onChange={(e) => setWebhookUrl(e.target.value)}
-                  placeholder="https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX"
+                  placeholder="https://hooks.slack.com/"
                   className="mt-1.5 h-10 font-mono text-xs"
                   disabled={slackConnected}
                 />
