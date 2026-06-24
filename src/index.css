@@ -7,9 +7,9 @@
 
 @layer base {
   :root {
-    --background: oklch(1 0 0);
+    --background: oklch(0.985 0.002 250);
     --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
+    --card: oklch(0.995 0 0);
     --card-foreground: oklch(0.145 0 0);
     --popover: oklch(1 0 0);
     --popover-foreground: oklch(0.145 0 0);
@@ -82,6 +82,7 @@
     --sidebar-ring: oklch(0.556 0 0);
     --sidebar: oklch(0.205 0 0);
   }
+  
   .theme {
     --font-heading: var(--font-sans);
     --font-sans: 'Geist Variable', sans-serif;
@@ -90,7 +91,38 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    background:
+      radial-gradient(circle at top left, rgba(99,102,241,.08), transparent 35%),
+      radial-gradient(circle at top right, rgba(168,85,247,.08), transparent 35%);
+  }
+  .glass {
+    @apply bg-background/70 backdrop-blur-xl;
+  }
+  
+  .surface {
+    @apply bg-card shadow-sm hover:shadow-md transition-all duration-200;
+  }
+  
+  .gradient-border {
+    position: relative;
+  }
+  
+  .gradient-border::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: linear-gradient(
+      135deg,
+      rgba(99,102,241,.4),
+      rgba(168,85,247,.4)
+    );
+    -webkit-mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
   }
   html {
     @apply font-sans;
@@ -150,4 +182,5 @@
     background-color: hsl(var(--border));
     border-radius: 3px;
   }
+
 }
