@@ -89,15 +89,7 @@ export default function LeadCard({ lead }) {
           </a>
         </div>
 
-        {lead.id === 1 ? (
-          <Button 
-            size="icon"
-            className="bg-blue-700 hover:bg-blue-800 text-white rounded-lg w-10 h-10 shadow-sm"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </Button>
-        ) : (
-          <Button 
+        <Button 
             onClick={handleGenerateResponse}
             disabled={isGenerating}
             className="bg-blue-700 hover:bg-blue-800 text-white font-bold flex items-center gap-2 rounded-lg px-4 shadow-sm"
@@ -112,7 +104,6 @@ export default function LeadCard({ lead }) {
               </>
             )}
           </Button>
-        )}
       </div>
     </article>
   );
