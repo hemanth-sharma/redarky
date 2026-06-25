@@ -38,8 +38,8 @@ export const createAxiosClient = (config = {}) => {
   };
 };
 
-// Mock base44 client to replace SDK client
-export const base44 = {
+// Mock redarky client to replace SDK client
+export const redarky = {
   auth: {
     me: async () => {
       const storedUser = localStorage.getItem('redarky_user');
