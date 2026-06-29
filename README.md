@@ -1,39 +1,26 @@
-**Welcome to your Base44 project** 
+# LeadGen UI — Social Listening & Multi-Agent AI Dashboard
 
-**About**
+The sleek, production-grade user interface for the **ListeningAgentAi** ecosystem. Built using React, Vite, and Tailwind CSS (via Base44), this application gives users a comprehensive control center to configure keyword missions, visualize real-time intent scraping metrics, monitor background LangGraph multi-agent decision chains, and manage generated B2B leads.
 
-View and Edit  your app on [Base44.com](http://Base44.com) 
+---
 
-This project contains everything you need to run your app locally.
+## 🚀 Key Features
 
-**Edit the code in your local development environment**
+* **Mission Control Center:** A step-by-step interactive builder to launch data-collection workflows targeting specific subreddits and keyword parameters.
+* **Live Ingestion Monitoring:** High-fidelity metric tracking components visualization to inspect payload flow and system processing health.
+* **Agent Execution Logger:** Deep-dive interface (`LogViewer`) designed to surface real-time node outputs directly from the backend LangGraph supervisors.
+* **Market-Gap Analysis & Engagement Queue:** Interactive data views mapping extracted product voids, sentiment breakdowns, and structured lead profiles requiring review or outreach.
 
-Any change pushed to the repo will also be reflected in the Base44 Builder.
+---
 
-**Prerequisites:** 
+## 🛠️ Local Development Setup
 
-1. Clone the repository using the project's Git URL 
-2. Navigate to the project directory
-3. Install dependencies: `npm install`
-4. Create an `.env.local` file and set the right environment variables
+Follow these steps to spin up the dashboard client interface in your local engineering environment.
 
-```
-VITE_BASE44_APP_ID=your_app_id
-VITE_BASE44_APP_BASE_URL=your_backend_url
+### Prerequisites
+Ensure you have cloned the repository locally and installed the standard system runtime requirements (`Node.js`).
 
-e.g.
-VITE_BASE44_APP_ID=cbef744a8545c389ef439ea6
-VITE_BASE44_APP_BASE_URL=https://my-to-do-list-81bfaad7.base44.app
-```
-
-Run the app: `npm run dev`
-
-**Publish your changes**
-
-Open [Base44.com](http://Base44.com) and click on Publish.
-
-**Docs & Support**
-
-Documentation: [https://docs.base44.com/Integrations/Using-GitHub](https://docs.base44.com/Integrations/Using-GitHub)
-
-Support: [https://app.base44.com/support](https://app.base44.com/support)
+### 1. Install Project Dependencies
+Navigate directly to the workspace root directory and install your asset packages:
+```bash
+npm install
