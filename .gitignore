@@ -33,3 +33,4 @@ dist-ssr
 rough.txt
 rough_code.txt*
 bundlepy.py
+mocked_webscraper.json

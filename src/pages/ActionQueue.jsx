@@ -6,45 +6,45 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-
-const MOCK_LEADS = [
-  {
-    id: 1,
-    platform: 'reddit',
-    author: 'u/TechGuru_42',
-    channel: 'r/SaaS',
-    timeAgo: '2 hours ago',
-    keyword: 'competitor monitoring',
-    intentScore: 96,
-    title: "Looking for an alternative to Brand24 that doesn't cost a fortune.",
-    content: "Currently paying for their enterprise tier but the data quality has been slipping lately. Does anyone know a tool that captures more real-time conversational data from niche tech forums? RedArky was mentioned but I'm not sure if it handles multi-platform monitoring yet...",
-    sourceUrl: '#'
-  },
-  {
-    id: 2,
-    platform: 'twitter',
-    author: '@growth_lead',
-    channel: 'Twitter',
-    timeAgo: '5 hours ago',
-    keyword: 'lead signal scraper',
-    intentScore: 84,
-    title: "B2B sales teams: how are you automating your cold outreach signals?",
-    content: "Manual prospecting is dead. We need to find people talking about outbound scaling pain points the second they tweet it. What's the stack for 2024? Looking for recommendations.",
-    sourceUrl: '#'
-  },
-  {
-    id: 3,
-    platform: 'hn',
-    author: 'alexm_dev',
-    channel: 'Hacker News',
-    timeAgo: '10 hours ago',
-    keyword: 'SaaS automation',
-    intentScore: 91,
-    title: "Show HN: Scaling social listening with vector DBs",
-    content: "We've been building a tool to bridge the gap between simple keyword alerts and deep semantic intent. Current solutions are too noisy or too expensive. We're looking for feedback from people running similar pipelines.",
-    sourceUrl: '#'
-  }
-];
+import { mockLeads } from '@/data/mockData';
+// const MOCK_LEADS = [
+//   {
+//     id: 1,
+//     platform: 'reddit',
+//     author: 'u/TechGuru_42',
+//     channel: 'r/SaaS',
+//     timeAgo: '2 hours ago',
+//     keyword: 'competitor monitoring',
+//     intentScore: 96,
+//     title: "Looking for an alternative to Brand24 that doesn't cost a fortune.",
+//     content: "Currently paying for their enterprise tier but the data quality has been slipping lately. Does anyone know a tool that captures more real-time conversational data from niche tech forums? RedArky was mentioned but I'm not sure if it handles multi-platform monitoring yet...",
+//     sourceUrl: '#'
+//   },
+//   {
+//     id: 2,
+//     platform: 'twitter',
+//     author: '@growth_lead',
+//     channel: 'Twitter',
+//     timeAgo: '5 hours ago',
+//     keyword: 'lead signal scraper',
+//     intentScore: 84,
+//     title: "B2B sales teams: how are you automating your cold outreach signals?",
+//     content: "Manual prospecting is dead. We need to find people talking about outbound scaling pain points the second they tweet it. What's the stack for 2024? Looking for recommendations.",
+//     sourceUrl: '#'
+//   },
+//   {
+//     id: 3,
+//     platform: 'hn',
+//     author: 'alexm_dev',
+//     channel: 'Hacker News',
+//     timeAgo: '10 hours ago',
+//     keyword: 'SaaS automation',
+//     intentScore: 91,
+//     title: "Show HN: Scaling social listening with vector DBs",
+//     content: "We've been building a tool to bridge the gap between simple keyword alerts and deep semantic intent. Current solutions are too noisy or too expensive. We're looking for feedback from people running similar pipelines.",
+//     sourceUrl: '#'
+//   }
+// ];
 
 export default function ActionQueue() {
   const [intentThreshold, setIntentThreshold] = useState([75]);
@@ -88,7 +88,7 @@ export default function ActionQueue() {
 
         {/* Lead Cards */}
         <div className="space-y-4 max-w-4xl">
-          {MOCK_LEADS.map(lead => (
+          {mockLeads.map(lead => (
             <LeadCard key={lead.id} lead={lead} />
           ))}
         </div>

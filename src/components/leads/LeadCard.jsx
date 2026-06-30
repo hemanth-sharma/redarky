@@ -1,12 +1,21 @@
 import React, { useState } from 'react';
-import { MessageSquare, Twitter, Terminal, Bot, X, ExternalLink, RefreshCw } from 'lucide-react';
+import { MessageSquare, Twitter, Terminal, Bot, X, ExternalLink, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export default function LeadCard({ lead }) {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const CHARACTER_LIMIT = 200;
+  const isLongContent = lead.content && lead.content.length > CHARACTER_LIMIT;
+
+  // Determine what text slice to render
+  const displayContent = isLongContent && !isExpanded 
+    ? `${lead.content.substring(0, CHARACTER_LIMIT)}...` 
+    : lead.content;
 
   const getPlatformIcon = (platform) => {
-    switch (platform.toLowerCase()) {
+    switch (platform?.toLowerCase()) {
       case 'reddit':
         return (
           <div className="w-8 h-8 rounded-full bg-[#ff4500]/10 flex items-center justify-center text-[#ff4500]">
@@ -64,14 +73,30 @@ export default function LeadCard({ lead }) {
 
       <div className="mb-5">
         <h3 className="text-lg font-bold mb-2 text-slate-900">{lead.title}</h3>
-        <p className="text-sm text-slate-600 leading-relaxed">
-          {/* Mocking the highlighted keyword spans from your design */}
-          {lead.content.split(/(real-time conversational data|outbound scaling pain points|deep semantic intent)/).map((part, i) => 
-            ['real-time conversational data', 'outbound scaling pain points', 'deep semantic intent'].includes(part) ? 
-              <span key={i} className="bg-indigo-50 text-indigo-900 font-semibold px-1 rounded">{part}</span> : 
-              part
+        <div className="text-sm text-slate-600 leading-relaxed">
+          <p className="inline">
+            {/* Split and highlight keywords based on the dynamic slice rendered */}
+            {displayContent.split(/(real-time conversational data|outbound scaling pain points|deep semantic intent)/).map((part, i) => 
+              ['real-time conversational data', 'outbound scaling pain points', 'deep semantic intent'].includes(part) ? 
+                <span key={i} className="bg-indigo-50 text-indigo-900 font-semibold px-1 rounded">{part}</span> : 
+                part
+            )}
+          </p>
+          
+          {/* Toggle Expand/Collapse Trigger */}
+          {isLongContent && (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="ml-1.5 inline-flex items-center gap-0.5 text-xs font-bold text-blue-600 hover:text-blue-800 hover:underline focus:outline-none alignment-baseline"
+            >
+              {isExpanded ? (
+                <>Show less <ChevronUp className="w-3 h-3" /></>
+              ) : (
+                <>Show more <ChevronDown className="w-3 h-3" /></>
+              )}
+            </button>
           )}
-        </p>
+        </div>
       </div>
 
       <div className="flex items-center justify-between pt-4 border-t border-slate-100">
@@ -90,20 +115,20 @@ export default function LeadCard({ lead }) {
         </div>
 
         <Button 
-            onClick={handleGenerateResponse}
-            disabled={isGenerating}
-            className="bg-blue-700 hover:bg-blue-800 text-white font-bold flex items-center gap-2 rounded-lg px-4 shadow-sm"
-          >
-            {isGenerating ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" /> Drafting...
-              </>
-            ) : (
-              <>
-                <Bot className="w-4 h-4" /> Generate AI Response
-              </>
-            )}
-          </Button>
+          onClick={handleGenerateResponse}
+          disabled={isGenerating}
+          className="bg-blue-700 hover:bg-blue-800 text-white font-bold flex items-center gap-2 rounded-lg px-4 shadow-sm"
+        >
+          {isGenerating ? (
+            <>
+              <RefreshCw className="w-4 h-4 animate-spin" /> Drafting...
+            </>
+          ) : (
+            <>
+              <Bot className="w-4 h-4" /> Generate AI Response
+            </>
+          )}
+        </Button>
       </div>
     </article>
   );

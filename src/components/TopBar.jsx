@@ -1,7 +1,7 @@
 import React from 'react';
 import { Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +24,7 @@ export default function TopBar({ onMenuClick, title }) {
         .join('')
         .toUpperCase()
         .slice(0, 2)
-    : 'U';
+    : 'US'; // Default fallback initials
 
   return (
     <header className="sticky top-0 right-0 z-40 flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white/80 px-6 backdrop-blur-md">
@@ -61,9 +61,8 @@ export default function TopBar({ onMenuClick, title }) {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center rounded-full outline-none p-0.5 hover:ring-2 hover:ring-slate-200 transition">
-              <Avatar className="h-8 w-8 border border-slate-200 shadow-sm">
-                <AvatarImage src={user?.image || "https://lh3.googleusercontent.com/aida-public/AB6AXuBXYF7aDVzTZtnv9TXOl_p9y1z0Vk20jd_jYSRJlC-_1ZKJv59BeOya47z0wHKUjMuEX8GG1aHWX4aqY0jxGrKEhMRTkwe8A1W43HYc8-SNBFUaWbUhEiDySQrv35jmtWTK5294u_Jb-jyPNKWnX8aXLw5WBuRsEq5bgVVhsgpdH6Fs8QSrYYDRtiJ-ZqV0hPygeIZjxRut_76YV5L9jt0NCmOXxgFATRhTnbOqYPG41vOzIW1qyu5tdOJ7g84jTYcyNk-C_vjf2UQ"} alt={user?.full_name || 'User'} />
-                <AvatarFallback className="bg-[#f2f3ff] text-xs font-bold text-[#004ac6]">
+              <Avatar className="h-8 w-8 border border-slate-200 shadow-sm select-none">
+                <AvatarFallback className="bg-gradient-to-br from-blue-600 to-indigo-700 text-xs font-extrabold text-white">
                   {initials}
                 </AvatarFallback>
               </Avatar>
