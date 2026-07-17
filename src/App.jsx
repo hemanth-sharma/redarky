@@ -18,8 +18,6 @@ import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import ForgotPassword from '@/pages/ForgotPassword';
 import ResetPassword from '@/pages/ResetPassword';
-import { track } from '@vercel/analytics';
-
 
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
@@ -66,16 +64,7 @@ const AuthenticatedApp = () => {
     </Routes>
   );
 };
-function VercelAnalyticsTracker() {
-  const location = useLocation();
 
-  useEffect(() => {
-    // This manually tracks page views every time the client router updates
-    track('pageview', { url: location.pathname + location.search });
-  }, [location]);
-
-  return null;
-}
 
 function App() {
 
@@ -84,7 +73,6 @@ function App() {
       <ThemeProvider>
         <QueryClientProvider client={queryClientInstance}>
           <Router>
-            <VercelAnalyticsTracker />
             <ScrollToTop />
             <AuthenticatedApp />
           </Router>
