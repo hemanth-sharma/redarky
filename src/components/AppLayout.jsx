@@ -1,49 +1,47 @@
-import React, { useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
-import Sidebar from "@/components/Sidebar";
-import TopBar from "@/components/TopBar";
+import React, { useState } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
+import Sidebar from '@/components/Sidebar';
+import TopBar from '@/components/TopBar';
 
 const titles = {
-  "/dashboard": "Overview",
-  "/queue": "Action Queue",
-  "/product-profile": "Product Profile",
-  "/integrations": "Integrations",
+  '/dashboard': 'Dashboard',
+  '/queue': 'Action Queue',
+  '/product-profile': 'Product Profile',
+  '/scraper-activity': 'Scraper Activity',
+  '/integrations': 'Integrations',
 };
 
 export default function AppLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
 
-  const noScrollbarClass = "[&-::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]";
-
   return (
-    <div className="h-screen w-screen bg-[#faf8ff] text-[#131b2e] flex overflow-hidden antialiased">
-      {/* Desktop Sidebar Fixed Width Block */}
-      <aside className="hidden lg:block w-[240px] shrink-0 h-full border-r border-slate-200 bg-white z-50">
+    <div className="h-screen w-screen flex overflow-hidden antialiased">
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:block w-[240px] shrink-0 h-full border-r border-border bg-card z-50">
         <Sidebar />
       </aside>
 
-      {/* Mobile Drawer Overlay */}
+      {/* Mobile Drawer */}
       {mobileOpen && (
         <div className="fixed inset-0 z-50 flex lg:hidden">
-          <div 
-            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm" 
+          <div
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm animate-fade-in-fast"
             onClick={() => setMobileOpen(false)}
           />
-          <aside className="relative w-[240px] h-full bg-white border-r border-slate-200 flex flex-col animate-in slide-in-from-left duration-200">
+          <aside className="relative w-[240px] h-full bg-card border-r border-border flex flex-col animate-slide-in-from-left duration-200">
             <Sidebar onNavigate={() => setMobileOpen(false)} />
           </aside>
         </div>
       )}
 
-      {/* Content Stream Container */}
+      {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <TopBar
-          title={titles[location.pathname] || "RedArky"}
+          title={titles[location.pathname] || 'Redarky'}
           onMenuClick={() => setMobileOpen(true)}
         />
-
-        <main className={`flex-1 overflow-y-auto custom-scrollbar bg-[#faf8ff] ${noScrollbarClass}`}>
+        <main className="flex-1 overflow-y-auto scrollbar-thin">
           <div className="w-full p-6 lg:p-8 max-w-[1400px]">
             <Outlet />
           </div>

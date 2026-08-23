@@ -1,5 +1,9 @@
+/**
+ * Onboarding — 5-step wizard that creates the first project + keywords + sources.
+ */
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Zap,
   ArrowRight,
@@ -11,73 +15,130 @@ import {
   Target,
   Search,
   Users,
-  Swords,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { productProfile } from '@/data/mockData';
+import { projectsApi, keywordsApi, sourcesApi } from '@/api';
+import { toast } from '@/hooks/use-toast';
+import { toastApiError } from '@/api';
 import { cn } from '@/lib/utils';
 
 const steps = [
-  { id: 0, label: 'Product', icon: Zap },
-  { id: 1, label: 'Audience', icon: Target },
+  { id: 0, label: 'Project', icon: Zap },
+  { id: 1, label: 'Goal', icon: Target },
   { id: 2, label: 'Keywords', icon: Search },
-  { id: 3, label: 'Communities', icon: Users },
-  { id: 4, label: 'Competitors', icon: Swords },
+  { id: 3, label: 'Sources', icon: Users },
 ];
 
 export default function Onboarding() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [step, setStep] = useState(0);
-  const [profile, setProfile] = useState({
-    product_name: '',
-    tagline: '',
-    description: '',
-    target_audience: '',
-    pain_points: [''],
-    keywords: [''],
-    subreddits: [''],
-    hn_enabled: true,
-    competitors: [''],
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({
+    name: '',
+    goal_description: '',
+    goal_type: 'lead_gen',
+    company_name: '',
+    company_url: '',
+    company_description: '',
+    keywords: [{ keyword: '', keyword_type: 'include' }],
+    sources: [{ identifier: '' }],
   });
 
-  const update = (field, value) => {
-    setProfile((prev) => ({ ...prev, [field]: value }));
-  };
+  const update = (field, value) => setForm({ ...form, [field]: value });
+  const updateArrayItem = (field, idx, value) =>
+    setForm({
+      ...form,
+      [field]: form[field].map((item, i) => (i === idx ? value : item)),
+    });
 
-  const updateArrayItem = (field, idx, value) => {
-    setProfile((prev) => ({
-      ...prev,
-      [field]: prev[field].map((item, i) => (i === idx ? value : item)),
-    }));
-  };
-
-  const addArrayItem = (field) => {
-    setProfile((prev) => ({ ...prev, [field]: [...prev[field], ''] }));
-  };
-
-  const removeArrayItem = (field, idx) => {
-    setProfile((prev) => ({
-      ...prev,
-      [field]: prev[field].filter((_, i) => i !== idx),
-    }));
-  };
+  const createProjectMutation = useMutation({
+    mutationFn: (data) => projectsApi.create(data),
+  });
+  const createKeywordMutation = useMutation({
+    mutationFn: (data) => keywordsApi.create(data),
+  });
+  const addSourceMutation = useMutation({
+    mutationFn: (data) => sourcesApi.add(data.projectId, data.payload),
+  });
+  const activateMutation = useMutation({
+    mutationFn: (projectId) => projectsApi.activate(projectId),
+  });
 
   const canProceed = () => {
-    if (step === 0)
-      return profile.product_name && profile.tagline && profile.description;
-    if (step === 1) return profile.target_audience && profile.pain_points[0];
-    if (step === 2) return profile.keywords[0];
-    if (step === 3) return profile.subreddits[0] || profile.hn_enabled;
-    if (step === 4) return profile.competitors[0];
+    if (step === 0) return form.name.trim();
+    if (step === 1) return form.goal_description.trim();
+    if (step === 2) return form.keywords.some((k) => k.keyword.trim());
+    if (step === 3) return form.sources.some((s) => s.identifier.trim());
     return true;
   };
 
-  const handleFinish = () => {
-    navigate('/queue');
+  const handleFinish = async () => {
+    setSubmitting(true);
+    try {
+      // 1. Create project
+      const project = await createProjectMutation.mutateAsync({
+        name: form.name,
+        goal_description: form.goal_description,
+        goal_type: form.goal_type,
+        company_name: form.company_name || undefined,
+        company_url: form.company_url || undefined,
+        company_description: form.company_description || undefined,
+      });
+
+      // 2. Create keywords
+      const kwPromises = form.keywords
+        .filter((k) => k.keyword.trim())
+        .map((k) =>
+          createKeywordMutation.mutateAsync({
+            keyword: k.keyword.trim(),
+            keyword_type: k.keyword_type || 'include',
+            project_id: project.id,
+          })
+        );
+      await Promise.allSettled(kwPromises);
+
+      // 3. Add sources
+      const srcPromises = form.sources
+        .filter((s) => s.identifier.trim())
+        .map((s) => {
+          const id = s.identifier.trim().startsWith('r/')
+            ? s.identifier.trim()
+            : `r/${s.identifier.trim()}`;
+          return addSourceMutation.mutateAsync({
+            projectId: project.id,
+            payload: {
+              source_type: 'reddit',
+              identifier: id,
+              interval_minutes: 30,
+            },
+          });
+        });
+      await Promise.allSettled(srcPromises);
+
+      // 4. Activate pipeline
+      try {
+        await activateMutation.mutateAsync(project.id);
+      } catch (e) {
+        // Activation is best-effort
+        console.warn('Activation failed', e);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      toast({
+        title: 'Project created!',
+        description: 'Your pipeline is active. First scrape runs within 30 minutes.',
+      });
+      navigate('/queue', { replace: true });
+    } catch (e) {
+      toastApiError(e, 'Failed to create project');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -88,8 +149,8 @@ export default function Onboarding() {
           <div className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl gradient-accent shadow-sm">
             <Zap className="h-6 w-6 text-white" fill="white" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Set Up Your Product Profile
+          <h1 className="text-2xl font-bold tracking-tight">
+            Set up your monitoring project
           </h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
             This is the brain of the system — everything downstream uses it.
@@ -137,44 +198,40 @@ export default function Onboarding() {
           {step === 0 && (
             <div className="space-y-5">
               <div>
-                <Label htmlFor="product_name" className="text-sm font-medium">
-                  Product Name
+                <Label htmlFor="name" className="text-sm font-medium">
+                  Project name
                 </Label>
                 <Input
-                  id="product_name"
-                  value={profile.product_name}
-                  onChange={(e) => update('product_name', e.target.value)}
-                  placeholder="e.g. ScrapeFlow"
+                  id="name"
+                  value={form.name}
+                  onChange={(e) => update('name', e.target.value)}
+                  placeholder="e.g. SaaS Lead Generation"
                   className="mt-1.5 h-11"
                 />
               </div>
               <div>
-                <Label htmlFor="tagline" className="text-sm font-medium">
-                  Tagline
+                <Label htmlFor="company_name" className="text-sm font-medium">
+                  Company name <span className="text-muted-foreground/60">(optional)</span>
                 </Label>
                 <Input
-                  id="tagline"
-                  value={profile.tagline}
-                  onChange={(e) => update('tagline', e.target.value)}
-                  placeholder="One-line description of what you do"
+                  id="company_name"
+                  value={form.company_name}
+                  onChange={(e) => update('company_name', e.target.value)}
+                  placeholder="Your company"
                   className="mt-1.5 h-11"
                 />
               </div>
               <div>
-                <Label htmlFor="description" className="text-sm font-medium">
-                  Product Description
+                <Label htmlFor="company_url" className="text-sm font-medium">
+                  Website <span className="text-muted-foreground/60">(optional)</span>
                 </Label>
-                <Textarea
-                  id="description"
-                  value={profile.description}
-                  onChange={(e) => update('description', e.target.value)}
-                  placeholder="Describe your product in detail — what it does, who it's for, what makes it different. The AI uses this to draft accurate replies."
-                  className="mt-1.5 min-h-[120px]"
+                <Input
+                  id="company_url"
+                  value={form.company_url}
+                  onChange={(e) => update('company_url', e.target.value)}
+                  placeholder="https://…"
+                  className="mt-1.5 h-11"
                 />
-                <p className="mt-1.5 text-xs text-muted-foreground">
-                  Be specific. This is what the AI uses to generate technically
-                  accurate, value-first replies.
-                </p>
               </div>
             </div>
           )}
@@ -182,58 +239,43 @@ export default function Onboarding() {
           {step === 1 && (
             <div className="space-y-5">
               <div>
-                <Label htmlFor="target_audience" className="text-sm font-medium">
-                  Target Audience
+                <Label htmlFor="goal_description" className="text-sm font-medium">
+                  Monitoring goal
                 </Label>
                 <Textarea
-                  id="target_audience"
-                  value={profile.target_audience}
-                  onChange={(e) => update('target_audience', e.target.value)}
-                  placeholder="Who are your ideal customers? What roles do they have, what are they working on?"
-                  className="mt-1.5 min-h-[80px]"
+                  id="goal_description"
+                  value={form.goal_description}
+                  onChange={(e) => update('goal_description', e.target.value)}
+                  placeholder="e.g. Find people asking for a Notion alternative"
+                  className="mt-1.5 min-h-[100px]"
                 />
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  The matcher uses this to score semantic relevance of each post.
+                </p>
               </div>
               <div>
-                <Label className="text-sm font-medium">
-                  Pain Points Your Product Solves
-                </Label>
-                <p className="mb-2 text-xs text-muted-foreground">
-                  What problems do buyers describe that your product fixes?
-                </p>
-                <div className="space-y-2">
-                  {profile.pain_points.map((point, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <Input
-                        value={point}
-                        onChange={(e) =>
-                          updateArrayItem('pain_points', idx, e.target.value)
-                        }
-                        placeholder="e.g. Existing scraping tools fail on JavaScript-heavy sites"
-                        className="h-10"
-                      />
-                      {profile.pain_points.length > 1 && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 shrink-0 text-muted-foreground"
-                          onClick={() => removeArrayItem('pain_points', idx)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-2 gap-1.5"
-                  onClick={() => addArrayItem('pain_points')}
+                <Label className="text-sm font-medium">Goal type</Label>
+                <select
+                  value={form.goal_type}
+                  onChange={(e) => update('goal_type', e.target.value)}
+                  className="mt-1.5 w-full h-11 rounded-md border border-input bg-background px-3 text-sm"
                 >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add pain point
-                </Button>
+                  <option value="lead_gen">Lead generation</option>
+                  <option value="brand_monitoring">Brand monitoring</option>
+                  <option value="competitor_tracking">Competitor tracking</option>
+                </select>
+              </div>
+              <div>
+                <Label htmlFor="company_description" className="text-sm font-medium">
+                  Product / company description <span className="text-muted-foreground/60">(optional)</span>
+                </Label>
+                <Textarea
+                  id="company_description"
+                  value={form.company_description}
+                  onChange={(e) => update('company_description', e.target.value)}
+                  placeholder="What does your product do, and for whom?"
+                  className="mt-1.5 min-h-[100px]"
+                />
               </div>
             </div>
           )}
@@ -241,31 +283,41 @@ export default function Onboarding() {
           {step === 2 && (
             <div className="space-y-5">
               <div>
-                <Label className="text-sm font-medium">
-                  Keywords to Monitor
-                </Label>
-                <p className="mb-2 text-xs text-muted-foreground">
-                  These are the phrases RedArky searches for in community
-                  posts. Be specific — "web scraping tool" beats "scraping".
+                <Label className="text-sm font-medium">Keywords to monitor</Label>
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Be specific — "notion alternative" beats "notion".
                 </p>
                 <div className="space-y-2">
-                  {profile.keywords.map((keyword, idx) => (
+                  {form.keywords.map((kw, idx) => (
                     <div key={idx} className="flex items-center gap-2">
                       <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
                       <Input
-                        value={keyword}
+                        value={kw.keyword}
                         onChange={(e) =>
-                          updateArrayItem('keywords', idx, e.target.value)
+                          updateArrayItem('keywords', idx, { ...kw, keyword: e.target.value })
                         }
-                        placeholder="e.g. web scraping tool"
+                        placeholder="e.g. notion alternative"
                         className="h-10"
                       />
-                      {profile.keywords.length > 1 && (
+                      <select
+                        value={kw.keyword_type}
+                        onChange={(e) =>
+                          updateArrayItem('keywords', idx, { ...kw, keyword_type: e.target.value })
+                        }
+                        className="h-10 rounded-md border border-input bg-background px-2 text-sm"
+                      >
+                        <option value="include">include</option>
+                        <option value="exclude">exclude</option>
+                        <option value="brand">brand</option>
+                      </select>
+                      {form.keywords.length > 1 && (
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-9 w-9 shrink-0 text-muted-foreground"
-                          onClick={() => removeArrayItem('keywords', idx)}
+                          onClick={() =>
+                            update('keywords', form.keywords.filter((_, i) => i !== idx))
+                          }
                         >
                           <X className="h-4 w-4" />
                         </Button>
@@ -277,10 +329,14 @@ export default function Onboarding() {
                   variant="outline"
                   size="sm"
                   className="mt-2 gap-1.5"
-                  onClick={() => addArrayItem('keywords')}
+                  onClick={() =>
+                    update('keywords', [
+                      ...form.keywords,
+                      { keyword: '', keyword_type: 'include' },
+                    ])
+                  }
                 >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add keyword
+                  <Plus className="h-3.5 w-3.5" /> Add keyword
                 </Button>
               </div>
             </div>
@@ -289,30 +345,30 @@ export default function Onboarding() {
           {step === 3 && (
             <div className="space-y-5">
               <div>
-                <Label className="text-sm font-medium">
-                  Subreddits to Watch
-                </Label>
-                <p className="mb-2 text-xs text-muted-foreground">
-                  Which subreddits should RedArky monitor for your keywords?
+                <Label className="text-sm font-medium">Subreddits to watch</Label>
+                <p className="mb-3 text-xs text-muted-foreground">
+                  Redarky pulls the latest posts from these subreddits in addition to keyword search.
                 </p>
                 <div className="space-y-2">
-                  {profile.subreddits.map((sub, idx) => (
+                  {form.sources.map((src, idx) => (
                     <div key={idx} className="flex items-center gap-2">
                       <span className="text-sm text-muted-foreground">r/</span>
                       <Input
-                        value={sub}
+                        value={src.identifier}
                         onChange={(e) =>
-                          updateArrayItem('subreddits', idx, e.target.value)
+                          updateArrayItem('sources', idx, { identifier: e.target.value })
                         }
-                        placeholder="webscraping"
+                        placeholder="e.g. SaaS"
                         className="h-10"
                       />
-                      {profile.subreddits.length > 1 && (
+                      {form.sources.length > 1 && (
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-9 w-9 shrink-0 text-muted-foreground"
-                          onClick={() => removeArrayItem('subreddits', idx)}
+                          onClick={() =>
+                            update('sources', form.sources.filter((_, i) => i !== idx))
+                          }
                         >
                           <X className="h-4 w-4" />
                         </Button>
@@ -324,72 +380,11 @@ export default function Onboarding() {
                   variant="outline"
                   size="sm"
                   className="mt-2 gap-1.5"
-                  onClick={() => addArrayItem('subreddits')}
+                  onClick={() =>
+                    update('sources', [...form.sources, { identifier: '' }])
+                  }
                 >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add subreddit
-                </Button>
-              </div>
-              <div className="flex items-center justify-between rounded-lg border border-border p-4">
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    Monitor Hacker News
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Include Ask HN, Show HN, and front page posts
-                  </p>
-                </div>
-                <Switch
-                  checked={profile.hn_enabled}
-                  onCheckedChange={(checked) => update('hn_enabled', checked)}
-                />
-              </div>
-            </div>
-          )}
-
-          {step === 4 && (
-            <div className="space-y-5">
-              <div>
-                <Label className="text-sm font-medium">
-                  Competitor Names
-                </Label>
-                <p className="mb-2 text-xs text-muted-foreground">
-                  RedArky will watch for posts mentioning these competitors —
-                  especially complaints, which are churn-capture opportunities.
-                </p>
-                <div className="space-y-2">
-                  {profile.competitors.map((comp, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <Swords className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <Input
-                        value={comp}
-                        onChange={(e) =>
-                          updateArrayItem('competitors', idx, e.target.value)
-                        }
-                        placeholder="e.g. ZenRows"
-                        className="h-10"
-                      />
-                      {profile.competitors.length > 1 && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 shrink-0 text-muted-foreground"
-                          onClick={() => removeArrayItem('competitors', idx)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-2 gap-1.5"
-                  onClick={() => addArrayItem('competitors')}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Add competitor
+                  <Plus className="h-3.5 w-3.5" /> Add subreddit
                 </Button>
               </div>
             </div>
@@ -401,29 +396,36 @@ export default function Onboarding() {
           <Button
             variant="ghost"
             onClick={() => setStep(Math.max(0, step - 1))}
-            disabled={step === 0}
+            disabled={step === 0 || submitting}
             className="gap-1.5"
           >
-            <ArrowLeft className="h-4 w-4" />
-            Back
+            <ArrowLeft className="h-4 w-4" /> Back
           </Button>
           {step < steps.length - 1 ? (
             <Button
+              variant="gradient"
               onClick={() => setStep(step + 1)}
               disabled={!canProceed()}
               className="gap-1.5"
             >
-              Continue
-              <ArrowRight className="h-4 w-4" />
+              Continue <ArrowRight className="h-4 w-4" />
             </Button>
           ) : (
             <Button
+              variant="gradient"
               onClick={handleFinish}
-              disabled={!canProceed()}
+              disabled={!canProceed() || submitting}
               className="gap-1.5"
             >
-              <Check className="h-4 w-4" />
-              Start Finding Leads
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Creating…
+                </>
+              ) : (
+                <>
+                  <Check className="h-4 w-4" /> Start finding leads
+                </>
+              )}
             </Button>
           )}
         </div>

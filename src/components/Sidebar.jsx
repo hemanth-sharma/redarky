@@ -1,65 +1,92 @@
 import React, { useState } from 'react';
-import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, ListChecks, Zap, Plug, Plus, X } from 'lucide-react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import {
+  LayoutDashboard,
+  ListChecks,
+  Zap,
+  Plug,
+  Plus,
+  X,
+  Activity,
+  Target,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { trackedKeywords } from '@/data/mockData';
+import { Logo } from '@/components/Logo';
+import { useQuery } from '@tanstack/react-query';
+import { projectsApi, keywordsApi } from '@/api';
+import { useAuth } from '@/lib/AuthContext';
 
 const navItems = [
-  { to: '/queue', label: 'Action Queue', icon: ListChecks, badge: '12' },
+  { to: '/queue', label: 'Action Queue', icon: ListChecks },
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/product-profile', label: 'Product Profile', icon: Zap },
+  { to: '/scraper-activity', label: 'Scraper Activity', icon: Activity },
   { to: '/integrations', label: 'Integrations', icon: Plug },
 ];
 
 export default function Sidebar({ onNavigate }) {
-  const [keywords, setKeywords] = useState(trackedKeywords || [
-    { id: 1, keyword: 'competitor monitoring', color: 'bg-orange-500' },
-    { id: 2, keyword: 'lead signal scraper', color: 'bg-purple-500' },
-    { id: 3, keyword: 'SaaS automation', color: 'bg-cyan-500' },
-    { id: 4, keyword: 'customer outreach', color: 'bg-emerald-500' }
-  ]);
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [adding, setAdding] = useState(false);
   const [newKeyword, setNewKeyword] = useState('');
 
-  const handleAdd = () => {
-    if (newKeyword.trim()) {
-      const colors = ['bg-orange-500', 'bg-purple-500', 'bg-cyan-500', 'bg-emerald-500', 'bg-blue-500'];
-      const randomColor = colors[Math.floor(Math.random() * colors.length)];
-      setKeywords([
-        ...keywords,
-        { id: Date.now(), keyword: newKeyword.trim(), color: randomColor },
-      ]);
+  // Fetch projects (we use the first one for keyword scope)
+  const { data: projects } = useQuery({
+    queryKey: ['projects'],
+    queryFn: () => projectsApi.list(),
+    enabled: !!user,
+  });
+
+  const activeProjectId = projects?.[0]?.id;
+
+  const { data: keywords = [] } = useQuery({
+    queryKey: ['keywords', activeProjectId],
+    queryFn: () => keywordsApi.list(activeProjectId),
+    enabled: !!activeProjectId,
+  });
+
+  // Keyword colors based on type
+  const colorFor = (kw) => {
+    if (kw.keyword_type === 'brand') return 'bg-purple-500';
+    if (kw.keyword_type === 'exclude') return 'bg-red-500';
+    return 'bg-indigo-500';
+  };
+
+  const handleAddKeyword = async () => {
+    if (!newKeyword.trim() || !activeProjectId) return;
+    try {
+      await keywordsApi.create({
+        keyword: newKeyword.trim(),
+        keyword_type: 'include',
+        project_id: activeProjectId,
+      });
       setNewKeyword('');
+    } catch (err) {
+      console.error('Failed to add keyword', err);
     }
     setAdding(false);
   };
 
-  const handleRemove = (id, e) => {
+  const handleRemoveKeyword = async (e, id) => {
     e.preventDefault();
     e.stopPropagation();
-    setKeywords(keywords.filter((k) => k.id !== id));
+    try {
+      await keywordsApi.remove(id);
+    } catch (err) {
+      console.error('Failed to remove keyword', err);
+    }
   };
 
   return (
-    <div className="flex h-full flex-col bg-white border-r border-slate-200">
-      {/* Brand Identity */}
-      <div className="flex h-16 items-center gap-3 px-5 border-b border-slate-100">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#004ac6] shadow-sm text-white">
-          <Zap className="h-4 w-4 fill-white" />
-        </div>
-        <div className="flex flex-col">
-          <span className="text-base font-bold tracking-tight text-[#004ac6]">
-            RedArky
-          </span>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#434655] opacity-60 leading-none mt-0.5">
-            Lead Intelligence
-          </span>
-        </div>
+    <div className="flex h-full flex-col bg-card border-r border-border">
+      {/* Brand */}
+      <div className="flex h-16 items-center gap-3 px-5 border-b border-border/60">
+        <Logo size="sm" />
       </div>
 
-      {/* Navigation Links */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto custom-scrollbar">
+      {/* Navigation */}
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto scrollbar-thin">
         {navItems.map((item) => {
           const Icon = item.icon;
           return (
@@ -69,37 +96,32 @@ export default function Sidebar({ onNavigate }) {
               onClick={onNavigate}
               className={({ isActive }) =>
                 cn(
-                  'group flex items-center gap-3 rounded px-4 py-2.5 text-sm font-medium transition-all duration-150',
+                  'group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-150',
                   isActive
-                    ? 'bg-[#f2f3ff] text-[#004ac6] font-bold border-r-4 border-[#004ac6]'
-                    : 'text-[#434655] hover:bg-slate-50 hover:text-[#131b2e]'
+                    ? 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 )
               }
             >
               <Icon className="h-4 w-4 shrink-0" />
               <span className="flex-1 truncate">{item.label}</span>
-              {item.badge && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#2563eb] px-1.5 text-[10px] font-bold text-white ml-auto">
-                  {item.badge}
-                </span>
-              )}
             </NavLink>
           );
         })}
 
-        {/* Divider */}
-        <div className="my-4 border-t border-slate-100" />
+        <div className="my-4 border-t border-border/60" />
 
-        {/* Tracked Keywords Pane */}
+        {/* Tracked Keywords */}
         <div className="flex flex-col">
           <div className="flex items-center justify-between px-3 pb-2 pt-1">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Keywords
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Tracked Keywords
             </p>
             {!adding && (
               <button
-                className="text-slate-400 hover:text-[#004ac6] p-0.5 rounded transition"
+                className="text-muted-foreground hover:text-primary p-0.5 rounded transition"
                 onClick={() => setAdding(true)}
+                aria-label="Add keyword"
               >
                 <Plus className="h-3.5 w-3.5" />
               </button>
@@ -113,32 +135,38 @@ export default function Sidebar({ onNavigate }) {
                 value={newKeyword}
                 onChange={(e) => setNewKeyword(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleAdd();
+                  if (e.key === 'Enter') handleAddKeyword();
                   if (e.key === 'Escape') {
                     setAdding(false);
                     setNewKeyword('');
                   }
                 }}
-                onBlur={handleAdd}
-                placeholder="Press Enter to save..."
-                className="w-full h-8 px-2 border border-slate-200 rounded text-xs outline-none focus:border-[#004ac6] bg-slate-50"
+                onBlur={handleAddKeyword}
+                placeholder="Press Enter to save…"
+                className="w-full h-8 px-2 border border-input rounded text-xs outline-none focus:ring-2 focus:ring-ring bg-background"
               />
             </div>
           )}
 
-          <div className="space-y-0.5 max-h-48 overflow-y-auto custom-scrollbar">
+          <div className="space-y-0.5 max-h-48 overflow-y-auto scrollbar-thin">
+            {keywords.length === 0 && !adding && (
+              <p className="px-3 py-2 text-xs text-muted-foreground/70 italic">
+                No keywords yet — add one above.
+              </p>
+            )}
             {keywords.map((kw) => (
               <div
                 key={kw.id}
-                className="group flex items-center gap-3 rounded px-3 py-1.5 hover:bg-slate-50 cursor-pointer transition"
+                className="group flex items-center gap-3 rounded px-3 py-1.5 hover:bg-muted cursor-pointer transition"
               >
-                <div className={cn('h-2 w-2 rounded-full shrink-0', kw.color || 'bg-blue-500')} />
-                <span className="flex-1 truncate text-xs font-medium text-[#434655] group-hover:text-[#131b2e]">
+                <div className={cn('h-2 w-2 rounded-full shrink-0', colorFor(kw))} />
+                <span className="flex-1 truncate text-xs font-medium text-foreground/80 group-hover:text-foreground">
                   {kw.keyword}
                 </span>
                 <button
-                  onClick={(e) => handleRemove(kw.id, e)}
-                  className="text-slate-300 opacity-0 group-hover:opacity-100 hover:text-red-500 transition-opacity p-0.5"
+                  onClick={(e) => handleRemoveKeyword(e, kw.id)}
+                  className="text-muted-foreground/30 opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity p-0.5"
+                  aria-label="Remove keyword"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -148,18 +176,14 @@ export default function Sidebar({ onNavigate }) {
         </div>
       </nav>
 
-      {/* Usage Analytics Footer Panel */}
-      <div className="mt-auto border-t border-slate-100 p-4">
-        <div className="space-y-2">
-          <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider text-slate-400">
-            <span>Searches</span>
-            <span className="text-[#131b2e]">200 / 5,000</span>
-          </div>
-          <div className="h-1.5 w-full bg-[#e2e7ff] rounded-full overflow-hidden">
-            <div className="h-full bg-[#004ac6] w-[4%] rounded-full" />
-          </div>
-          <p className="text-[10px] text-slate-400 text-center mt-1">
-            Next reset in 14 days
+      {/* Footer / upgrade prompt */}
+      <div className="mt-auto border-t border-border/60 p-4">
+        <div className="rounded-lg gradient-border p-3 text-xs text-center">
+          <p className="font-semibold text-foreground mb-1">Pipeline Active</p>
+          <p className="text-muted-foreground text-[11px] leading-snug">
+            {activeProjectId
+              ? 'Next scrape batch runs within 30 minutes.'
+              : 'No project yet — create one to start scraping.'}
           </p>
         </div>
       </div>

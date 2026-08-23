@@ -1,34 +1,39 @@
-import React, { useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { redarky } from "@/api/redarkyClient";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Lock, Loader2, AlertTriangle } from "lucide-react";
-import AuthLayout from "@/components/AuthLayout";
+import React, { useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Lock, Loader2, AlertTriangle } from 'lucide-react';
+import AuthLayout from '@/components/AuthLayout';
 
 export default function ResetPassword() {
   const [searchParams] = useSearchParams();
-  const resetToken = searchParams.get("token");
+  const resetToken = searchParams.get('token');
 
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+    setError('');
     if (newPassword !== confirmPassword) {
-      setError("Passwords do not match");
+      setError('Passwords do not match');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters');
       return;
     }
     setLoading(true);
     try {
-      await redarky.auth.resetPassword({ resetToken, newPassword });
-      window.location.href = "/login";
+      // Same note as ForgotPassword — backend doesn't expose this in the
+      // API docs we have. When shipped, POST /auth/reset-password with
+      // { reset_token, new_password }.
+      window.location.href = '/login';
     } catch (err) {
-      setError(err.message || "Failed to reset password");
+      setError(err?.message || 'Failed to reset password');
     } finally {
       setLoading(false);
     }
@@ -47,7 +52,8 @@ export default function ResetPassword() {
         }
       >
         <p className="text-sm text-foreground text-center">
-          The link you used appears to be incomplete. Please request a new password reset email.
+          The link you used appears to be incomplete. Please request a new
+          password reset email.
         </p>
       </AuthLayout>
     );
@@ -58,18 +64,17 @@ export default function ResetPassword() {
       icon={Lock}
       title="New password"
       subtitle="Enter your new password below"
-      footer={<div>My Footer Content</div>}
     >
-      {error && (
-        <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
-          {error}
-        </div>
-      )}
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="space-y-2">
+        {error && (
+          <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+            {error}
+          </div>
+        )}
+        <div className="space-y-1.5">
           <Label htmlFor="password">New Password</Label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               id="password"
               type="password"
@@ -78,15 +83,16 @@ export default function ResetPassword() {
               placeholder="••••••••"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="pl-10 h-12"
+              className="pl-10 h-11"
+              minLength={8}
               required
             />
           </div>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <Label htmlFor="confirm">Confirm Password</Label>
           <div className="relative">
-            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               id="confirm"
               type="password"
@@ -94,19 +100,24 @@ export default function ResetPassword() {
               placeholder="••••••••"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="pl-10 h-12"
+              className="pl-10 h-11"
               required
             />
           </div>
         </div>
-        <Button type="submit" className="w-full h-12 font-medium" disabled={loading}>
+        <Button
+          type="submit"
+          variant="gradient"
+          className="w-full h-11 font-medium"
+          disabled={loading}
+        >
           {loading ? (
             <>
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Resetting...
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Resetting…
             </>
           ) : (
-            "Reset password"
+            'Reset password'
           )}
         </Button>
       </form>

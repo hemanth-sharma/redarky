@@ -1,40 +1,38 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-const ThemeContext = createContext();
+const ThemeContext = createContext({ theme: 'light', toggleTheme: () => {} });
 
-export const ThemeProvider = ({ children }) => {
-  const [theme, setTheme] = useState('light');
-
-  useEffect(() => {
-    const stored = localStorage.getItem('redarky-theme');
-    if (stored === 'light' || stored === 'dark') {
-      setTheme(stored);
+export function ThemeProvider({ children }) {
+  const [theme, setTheme] = useState(() => {
+    if (typeof window === 'undefined') return 'light';
+    try {
+      const stored = localStorage.getItem('redarky-theme');
+      if (stored === 'light' || stored === 'dark') return stored;
+      if (window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+    } catch {
+      // ignore
     }
-  }, []);
+    return 'light';
+  });
 
   useEffect(() => {
     const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
+    if (theme === 'dark') root.classList.add('dark');
+    else root.classList.remove('dark');
+    try {
+      localStorage.setItem('redarky-theme', theme);
+    } catch {
+      // ignore
     }
-    localStorage.setItem('redarky-theme', theme);
   }, [theme]);
 
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
-  };
+  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );
-};
+}
 
-export const useTheme = () => {
-  const context = useContext(ThemeContext);
-  if (!context) throw new Error('useTheme must be used within ThemeProvider');
-  return context;
-};
+export const useTheme = () => useContext(ThemeContext);
