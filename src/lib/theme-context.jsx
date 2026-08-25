@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-const ThemeContext = createContext({ theme: 'light', toggleTheme: () => {} });
+// Default context fallback set to 'dark'
+const ThemeContext = createContext({ theme: 'dark', toggleTheme: () => {} });
 
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
-    if (typeof window === 'undefined') return 'light';
+    if (typeof window === 'undefined') return 'dark';
     try {
       const stored = localStorage.getItem('redarky-theme');
       if (stored === 'light' || stored === 'dark') return stored;
@@ -12,7 +13,7 @@ export function ThemeProvider({ children }) {
     } catch {
       // ignore
     }
-    return 'light';
+    return 'dark'; // Fallback changed from 'light' to 'dark'
   });
 
   useEffect(() => {

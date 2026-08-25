@@ -10,12 +10,13 @@ import {
   Activity,
   Target,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn, formatRelativeTime } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/Logo';
 import { useQuery } from '@tanstack/react-query';
-import { projectsApi, keywordsApi } from '@/api';
+import { projectsApi, keywordsApi, scraperApi } from '@/api';
 import { useAuth } from '@/lib/AuthContext';
+import { formatRelative } from 'date-fns';
 
 const navItems = [
   { to: '/queue', label: 'Action Queue', icon: ListChecks },
@@ -45,6 +46,22 @@ export default function Sidebar({ onNavigate }) {
     queryFn: () => keywordsApi.list(activeProjectId),
     enabled: !!activeProjectId,
   });
+
+  // Last run scraper/pipeline time // Fetching last 5 
+  const { data: runs = [], isLoading, refetch } = useQuery({
+    queryKey: ['scraper-runs'],
+    queryFn: () => scraperApi.listRuns(5),
+    refetchInterval: 30 * 1000,
+  });
+  const lastRun = runs[0];
+
+  // Calculates remaining minutes until next run (assuming 30-min interval)
+  function getNextRunMinutes(dateString, intervalMinutes = 30) {
+    if (!dateString) return intervalMinutes;
+    const elapsedMinutes = Math.floor((new Date() - new Date(dateString)) / 60000);
+    const remainingMinutes = intervalMinutes - (elapsedMinutes % intervalMinutes);
+    return Math.max(1, remainingMinutes);
+  }
 
   // Keyword colors based on type
   const colorFor = (kw) => {
@@ -182,7 +199,11 @@ export default function Sidebar({ onNavigate }) {
           <p className="font-semibold text-foreground mb-1">Pipeline Active</p>
           <p className="text-muted-foreground text-[11px] leading-snug">
             {activeProjectId
-              ? 'Next scrape batch runs within 30 minutes.'
+              ? (
+                lastRun?.started_at ? (
+                    `Next run in ${getNextRunMinutes(lastRun.started_at, 30)} minutes`
+                )
+              :'Next scrape batch runs within 30 minutes.')
               : 'No project yet — create one to start scraping.'}
           </p>
         </div>

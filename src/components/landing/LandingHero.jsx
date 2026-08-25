@@ -27,6 +27,12 @@ export default function LandingHero() {
     // Send them to /login where they can choose: Google, demo, or email+password
     window.location.href = '/login?next=/dashboard';
   };
+  // Login Demo User and Redirect
+  const loginAsDemoUserAndRedirect = (e) => {
+    loginAsDemoUser();
+    e.preventDefault();
+    window.location.href = '/login?next=/dashboard';
+  }
 
   return (
     <section className="relative overflow-hidden pt-20 pb-24 sm:pt-28 sm:pb-32">
@@ -89,7 +95,7 @@ export default function LandingHero() {
             <Button
               size="xl"
               variant="outline"
-              onClick={() => loginAsDemoUser()}
+              onClick={loginAsDemoUserAndRedirect}
               disabled={isLoadingAuth}
             >
               <Sparkles className="h-4 w-4" />

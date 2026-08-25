@@ -1,8 +1,8 @@
 import React from 'react';
 
 const stats = [
-  { label: 'Subreddits monitored', value: '24+' },
-  { label: 'Avg. lead intent score', value: '87' },
+  { label: 'Subreddits monitored', value: '30+' },
+  { label: 'Avg. lead intent score', value: '85' },
   { label: 'Pipeline latency', value: '<2min' },
   { label: 'False-positive rate', value: '<3%' },
 ];
