@@ -201,6 +201,7 @@ async function request(path, options = {}) {
 
   let res;
   try {
+    console.log('Target API URL:', url.toString());
     res = await fetch(url, {
       method,
       headers: finalHeaders,
@@ -226,6 +227,7 @@ async function request(path, options = {}) {
     // Replay with the new token
     const newAt = tokenStore.getAccess();
     if (newAt) finalHeaders.Authorization = `Bearer ${newAt}`;
+    console.log('Target API URL:', url.toString());
     const replayRes = await fetch(url, {
       method,
       headers: finalHeaders,
