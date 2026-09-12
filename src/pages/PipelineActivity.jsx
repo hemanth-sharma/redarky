@@ -1,34 +1,27 @@
 /**
  * PipelineActivity — the live view of your product's data pipeline.
  *
- * Shows what the pipeline found and how it filtered it:
- *   - Per-batch: new matched posts (keyword stage) and how many of those
- *     became leads — nothing about raw/duplicate/error internals.
- *   - Latest matched posts by keyword, ranked by score.
- *
- * NOTE: the runs query uses the SAME key + limit as the Sidebar footer
- * (['scraper-runs', 5]) so react-query caches agree everywhere — this fixes
- * the old bug where a refresh pulled 50 runs and the counts jumped.
+ * Displays full pipeline batch performance metrics:
+ *   - Per-batch: pulled, new, dup, matched, and leads created.
+ *   - Shows the last 20 batches in a full-width scrollable card layout.
  */
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
 import {
   Activity,
   Loader2,
   Play,
   CheckCircle2,
+  XCircle,
+  AlertCircle,
   Clock,
   RefreshCw,
   Trophy,
-  ArrowRight,
-  Search,
-  Sparkles,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { scraperApi, postsApi } from '@/api';
+import { scraperApi } from '@/api';
 import { useProduct } from '@/lib/ProductContext';
 import { toast } from '@/hooks/use-toast';
 import { toastApiError } from '@/api';
@@ -36,13 +29,18 @@ import {
   cn,
   formatRelativeTime,
   formatNumber,
-  intentToPercent,
 } from '@/lib/utils';
 
-const RUNS_LIMIT = 5;
+const RUNS_LIMIT = 20;
+
+const statusConfig = {
+  success: { icon: CheckCircle2, color: 'text-emerald-600', bg: 'bg-emerald-100 dark:bg-emerald-950/50', label: 'Success' },
+  failed: { icon: XCircle, color: 'text-red-600', bg: 'bg-red-100 dark:bg-red-950/50', label: 'Failed' },
+  partial: { icon: AlertCircle, color: 'text-amber-600', bg: 'bg-amber-100 dark:bg-amber-950/50', label: 'Partial' },
+  running: { icon: Loader2, color: 'text-blue-600', bg: 'bg-blue-100 dark:bg-blue-950/50', label: 'Running' },
+};
 
 export default function PipelineActivity() {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { activeProduct } = useProduct();
 
@@ -51,21 +49,6 @@ export default function PipelineActivity() {
     queryFn: () => scraperApi.listRuns(RUNS_LIMIT),
     refetchInterval: 30 * 1000,
   });
-
-  // Latest matched posts by keywords for the active product (leads pinned top)
-  const { data: postsData, isLoading: loadingPosts } = useQuery({
-    queryKey: ['posts', activeProduct?.id, 'pipeline'],
-    queryFn: () =>
-      postsApi.list({
-        project_id: activeProduct?.id,
-        page: 1,
-        page_size: 10,
-        sort_by: 'intent_score',
-        sort_desc: true,
-      }),
-    enabled: !!activeProduct,
-  });
-  const matchedPosts = postsData?.items || [];
 
   const runPipelineMutation = useMutation({
     mutationFn: () => scraperApi.run(),
@@ -80,7 +63,7 @@ export default function PipelineActivity() {
     onError: (e) => toastApiError(e, 'Failed to trigger pipeline'),
   });
 
-  const totalMatched = runs.reduce((acc, r) => acc + (r.matched_posts_count || 0), 0);
+  const totalItems = runs.reduce((acc, r) => acc + (r.total_items_pulled || 0), 0);
   const totalLeads = runs.reduce((acc, r) => acc + (r.leads_created_count || 0), 0);
   const lastRun = runs[0];
 
@@ -115,9 +98,9 @@ export default function PipelineActivity() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard icon={Activity} label="Recent batches" value={formatNumber(runs.length)} />
         <SummaryCard
-          icon={Search}
-          label="Matched by keywords"
-          value={formatNumber(totalMatched)}
+          icon={CheckCircle2}
+          label="Total items pulled"
+          value={formatNumber(totalItems)}
           color="text-indigo-600"
         />
         <SummaryCard
@@ -133,65 +116,49 @@ export default function PipelineActivity() {
         />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* Batches — filtered counts only */}
-        <Card>
-          <CardHeader className="flex-row flex items-center justify-between space-y-0">
-            <div>
-              <CardTitle className="text-sm">Recent batches</CardTitle>
-              <CardDescription className="text-xs mt-1">
-                Last {RUNS_LIMIT} batches · auto-refreshes every 30s
-              </CardDescription>
+      {/* Batches Table — Full Available Space with Scrollbar */}
+      <Card>
+        <CardHeader className="flex-row flex items-center justify-between space-y-0">
+          <div>
+            <CardTitle className="text-sm">Recent batches</CardTitle>
+            <CardDescription className="text-xs mt-1">
+              Last {RUNS_LIMIT} batches · auto-refreshes every 30s
+            </CardDescription>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isLoading}
+          >
+            <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
+          </Button>
+        </CardHeader>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="flex justify-center py-10">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => refetch()}
-              disabled={isLoading}
-            >
-              <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
-            </Button>
-          </CardHeader>
-          <CardContent className="p-0">
-            {isLoading ? (
-              <div className="flex justify-center py-10">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : runs.length === 0 ? (
-              <div className="p-10 text-center">
-                <p className="text-sm text-muted-foreground">No pipeline batches yet.</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  The next scheduled batch runs within 30 minutes — or hit "Run pipeline now".
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {runs.map((run) => (
+          ) : runs.length === 0 ? (
+            <div className="p-10 text-center">
+              <p className="text-sm text-muted-foreground">No pipeline batches yet.</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                The next scheduled batch runs within 30 minutes — or hit "Run pipeline now".
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-border max-h-[600px] overflow-y-auto scrollbar-thin">
+              {runs.map((run) => {
+                const cfg = statusConfig[run.status] || statusConfig.running;
+                const Icon = cfg.icon;
+                return (
                   <div
                     key={run.id}
                     className="px-5 py-3.5 flex items-center gap-4 hover:bg-muted/30 transition"
                   >
-                    {/* Status */}
-                    <div
-                      className={cn(
-                        'h-9 w-9 rounded-full flex items-center justify-center shrink-0',
-                        run.status === 'success'
-                          ? 'bg-emerald-100 dark:bg-emerald-950/50'
-                          : run.status === 'running'
-                          ? 'bg-blue-100 dark:bg-blue-950/50'
-                          : 'bg-muted'
-                      )}
-                    >
-                      {run.status === 'success' ? (
-                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                      ) : (
-                        <Loader2
-                          className={cn(
-                            'h-4 w-4 text-muted-foreground',
-                            run.status === 'running' && 'animate-spin'
-                          )}
-                        />
-                      )}
+                    {/* Status icon */}
+                    <div className={cn('h-9 w-9 rounded-full flex items-center justify-center shrink-0', cfg.bg)}>
+                      <Icon className={cn('h-4 w-4', cfg.color, run.status === 'running' && 'animate-spin')} />
                     </div>
 
                     {/* Info */}
@@ -202,106 +169,32 @@ export default function PipelineActivity() {
                           {formatRelativeTime(run.started_at)}
                         </Badge>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {formatRelativeTime(run.started_at)} · {new Date(run.started_at).toLocaleTimeString()}
-                      </p>
+                      {run.error_message ? (
+                        <p className="text-xs text-destructive mt-0.5 truncate">
+                          {run.error_message}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Started {new Date(run.started_at).toLocaleString()}
+                        </p>
+                      )}
                     </div>
 
-                    {/* Pipeline-relevant counts only: matched + leads */}
-                    <div className="flex items-center gap-4 text-xs">
+                    {/* Full metrics breakdown */}
+                    <div className="flex items-center gap-4 sm:gap-6 text-xs">
+                      <Count label="pulled" value={run.total_items_pulled} />
+                      <Count label="new" value={run.new_items_inserted} className="text-emerald-600" />
+                      <Count label="dup" value={run.duplicate_items_skipped} className="text-muted-foreground" />
                       <Count label="matched" value={run.matched_posts_count} className="text-indigo-600" />
                       <Count label="leads" value={run.leads_created_count} className="text-emerald-600" />
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Matched posts by keywords */}
-        <Card>
-          <CardHeader className="flex-row flex items-center justify-between space-y-0">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-sm">
-                <Search className="h-4 w-4 text-primary" />
-                Matched by Keywords
-              </CardTitle>
-              <CardDescription className="text-xs mt-1">
-                {activeProduct ? `Newest matches for ${activeProduct.name}` : ''}
-              </CardDescription>
+                );
+              })}
             </div>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/queue')}>
-              Queue <ArrowRight className="h-3.5 w-3.5 ml-1" />
-            </Button>
-          </CardHeader>
-          <CardContent className="p-0">
-            {loadingPosts ? (
-              <div className="flex justify-center py-10">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : matchedPosts.length === 0 ? (
-              <div className="p-10 text-center">
-                <Sparkles className="mx-auto h-5 w-5 text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">No matched posts yet.</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Matches appear here as soon as the pipeline finds posts with your keywords.
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-border max-h-[420px] overflow-y-auto scrollbar-thin">
-                {matchedPosts.map((post) => (
-                  <div
-                    key={post.id}
-                    className="px-5 py-3 hover:bg-muted/30 transition cursor-pointer"
-                    onClick={() => navigate('/queue')}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">{post.title || '(untitled)'}</p>
-                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
-                          {post.author || 'unknown'}
-                          {post.subreddit ? ` · r/${post.subreddit}` : ''} · matched "
-                          {post.matched_keyword}"
-                        </p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p
-                          className={cn(
-                            'text-lg font-bold leading-none tabular-nums',
-                            post.is_lead ? 'text-emerald-600' : 'text-amber-500/90'
-                          )}
-                        >
-                          {intentToPercent(post.intent_score)}
-                        </p>
-                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">
-                          score
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-1.5 flex items-center gap-1.5">
-                      {post.is_lead ? (
-                        <Badge variant="success" className="text-[10px] gap-1">
-                          <Trophy className="h-3 w-3" /> Lead
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-[10px]">
-                          Potential match
-                        </Badge>
-                      )}
-                      {post.matched_intent_phrase && (
-                        <Badge variant="secondary" className="text-[10px]">
-                          "{post.matched_intent_phrase}"
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

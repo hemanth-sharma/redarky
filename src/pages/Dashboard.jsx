@@ -134,7 +134,7 @@ export default function Dashboard() {
       value: stats?.avg_intent_score != null ? intentToPercent(stats.avg_intent_score) : '—',
       icon: 'Bot',
       footer: `${formatNumber(stats?.llm_checked_count ?? 0)} graded by the AI agent`,
-      onClick: () => navigate('/scraper-activity'),
+      onClick: () => navigate('/pipeline-activity'),
     },
   ];
 
@@ -159,7 +159,7 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => navigate('/scraper-activity')}>
+          <Button variant="outline" size="sm" onClick={() => navigate('/pipeline-activity')}>
             <Radar className="h-4 w-4 mr-1.5" /> Pipeline Activity
           </Button>
           <Button variant="gradient" size="sm" onClick={() => navigate('/queue')}>

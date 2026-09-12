@@ -21,7 +21,7 @@ const navItems = [
   { to: '/queue', label: 'Action Queue', icon: ListChecks },
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/product-profile', label: 'Product Profile', icon: Zap },
-  { to: '/scraper-activity', label: 'Pipeline Activity', icon: Activity },
+  { to: '/pipeline-activity', label: 'Pipeline Activity', icon: Activity },
   { to: '/integrations', label: 'Integrations', icon: Plug },
 ];
 

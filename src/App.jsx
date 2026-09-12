@@ -51,7 +51,7 @@ function AuthenticatedRoutes() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/queue" element={<ActionQueue />} />
           <Route path="/product-profile" element={<ProductProfile />} />
-          <Route path="/scraper-activity" element={<PipelineActivity />} />
+          {/* <Route path="/scraper-activity" element={<PipelineActivity />} /> */}
           <Route path="/pipeline-activity" element={<PipelineActivity />} />
           <Route path="/integrations" element={<Integrations />} />
           <Route path="/feedback" element={<Feedback />} />
