@@ -129,9 +129,18 @@ export default function Onboarding() {
       }
 
       queryClient.invalidateQueries({ queryKey: ['projects'] });
+
+      // Make the new product the active one everywhere (Dashboard, Queue,
+      // Product Profile, Pipeline Activity)
+      try {
+        localStorage.setItem('redarky_active_product', project.id);
+      } catch {
+        /* non-fatal */
+      }
+
       toast({
-        title: 'Project created!',
-        description: 'Your pipeline is active. First scrape runs within 30 minutes.',
+        title: 'Product created!',
+        description: 'Your pipeline is active. The first collection batch runs within 30 minutes.',
       });
       navigate('/queue', { replace: true });
     } catch (e) {
