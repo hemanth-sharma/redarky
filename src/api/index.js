@@ -7,3 +7,5 @@ export { postsApi } from './posts';
 export { leadsApi } from './leads';
 export { scraperApi } from './scraper';
 export { matchingApi } from './matching';
+export { feedbackApi } from './feedback';
+export { integrationsApi } from './integrations';
