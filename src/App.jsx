@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import ScrollToTop from '@/components/ScrollToTop';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import AppLayout from '@/components/AppLayout';
+import { ProductProvider } from '@/lib/ProductContext';
 import { ThemeProvider } from '@/lib/theme-context';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import Landing from '@/pages/Landing';
@@ -15,7 +16,8 @@ import ActionQueue from '@/pages/ActionQueue';
 import Onboarding from '@/pages/Onboarding';
 import ProductProfile from '@/pages/ProductProfile';
 import Integrations from '@/pages/Integrations';
-import ScraperActivity from '@/pages/ScraperActivity';
+import PipelineActivity from '@/pages/PipelineActivity';
+import Feedback from '@/pages/Feedback';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import ForgotPassword from '@/pages/ForgotPassword';
@@ -33,6 +35,7 @@ function AuthenticatedRoutes() {
   }
 
   return (
+    <ProductProvider>
     <Routes>
       {/* Public routes */}
       <Route path="/" element={<Landing />} />
@@ -48,13 +51,16 @@ function AuthenticatedRoutes() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/queue" element={<ActionQueue />} />
           <Route path="/product-profile" element={<ProductProfile />} />
-          <Route path="/scraper-activity" element={<ScraperActivity />} />
+          <Route path="/scraper-activity" element={<PipelineActivity />} />
+          <Route path="/pipeline-activity" element={<PipelineActivity />} />
           <Route path="/integrations" element={<Integrations />} />
+          <Route path="/feedback" element={<Feedback />} />
         </Route>
       </Route>
 
       <Route path="*" element={<PageNotFound />} />
     </Routes>
+    </ProductProvider>
   );
 }
 

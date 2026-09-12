@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Menu, Bell, Activity } from 'lucide-react';
+import { Menu, Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import ThemeToggle from '@/components/ThemeToggle';
+import ProductSwitcher from '@/components/ProductSwitcher';
 import { useAuth } from '@/lib/AuthContext';
 import { Badge } from '@/components/ui/badge';
 import { scraperApi } from '@/api';
@@ -20,8 +21,10 @@ const titles = {
   '/dashboard': 'Dashboard',
   '/queue': 'Action Queue',
   '/product-profile': 'Product Profile',
-  '/scraper-activity': 'Scraper Activity',
+  '/scraper-activity': 'Pipeline Activity',
+  '/pipeline-activity': 'Pipeline Activity',
   '/integrations': 'Integrations',
+  '/feedback': 'Feedback',
 };
 
 export default function TopBar({ onMenuClick, title }) {
@@ -36,7 +39,7 @@ export default function TopBar({ onMenuClick, title }) {
 
   return (
     <header className="sticky top-0 right-0 z-40 flex h-16 w-full items-center justify-between border-b border-border glass px-6">
-      {/* Title */}
+      {/* Title + product switcher */}
       <div className="flex items-center gap-3">
         <Button
           variant="ghost"
@@ -52,9 +55,7 @@ export default function TopBar({ onMenuClick, title }) {
             {title}
           </h1>
           <div className="h-4 w-px bg-border mx-2 hidden sm:block" />
-          <span className="text-xs font-semibold text-muted-foreground hidden sm:block">
-            Lead Intelligence
-          </span>
+          <ProductSwitcher className="hidden sm:flex" />
           {isDemoUser && (
             <Badge variant="info" className="ml-2">Demo Mode</Badge>
           )}
@@ -114,12 +115,12 @@ export default function TopBar({ onMenuClick, title }) {
 function RecentActivityBell() {
   const [open, setOpen] = useState(false);
   const { data: runs } = useQuery({
-    queryKey: ['scraper-runs-recent'],
+    queryKey: ['scraper-runs', 5],
     queryFn: () => scraperApi.listRuns(5),
     refetchInterval: 60 * 1000,
   });
   const recent = (runs || []).slice(0, 5);
-  const latestStatus = recent[0]?.status;
+  const latest = recent[0];
 
   return (
     <DropdownMenu>
@@ -128,7 +129,7 @@ function RecentActivityBell() {
           variant="ghost"
           size="sm"
           className="relative h-9 gap-2 px-3"
-          aria-label="Live system activity"
+          aria-label="Live pipeline activity"
         >
           <Bell className="h-4 w-4" />
           <span className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
@@ -143,7 +144,7 @@ function RecentActivityBell() {
       >
         <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-2.5">
           <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-            Scraper Activity
+            Pipeline Activity
           </span>
           <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
@@ -153,18 +154,18 @@ function RecentActivityBell() {
         <div className="max-h-80 overflow-y-auto scrollbar-thin divide-y divide-border/60">
           {recent.length === 0 && (
             <div className="px-4 py-6 text-xs text-muted-foreground text-center">
-              No scraper activity yet.
+              No pipeline activity yet.
             </div>
           )}
           {recent.map((run) => (
             <div key={run.id} className="px-4 py-3 hover:bg-muted/30 transition">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="text-xs font-medium text-foreground">
-                  {run.status === 'success' ? '✓' : run.status === 'failed' ? '✗' : '↻'}{' '}
+                  {run.status === 'success' ? '✓' : run.status === 'failed' ? '↻' : '↻'}{' '}
                   Batch
                 </span>
                 <span className="text-[10px] text-muted-foreground font-mono">
-                  {run.total_items_pulled || 0} items
+                  {run.matched_posts_count || 0} matched · {run.leads_created_count || 0} leads
                 </span>
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground">

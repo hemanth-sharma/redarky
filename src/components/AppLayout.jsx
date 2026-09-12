@@ -7,8 +7,10 @@ const titles = {
   '/dashboard': 'Dashboard',
   '/queue': 'Action Queue',
   '/product-profile': 'Product Profile',
-  '/scraper-activity': 'Scraper Activity',
+  '/scraper-activity': 'Pipeline Activity',
+  '/pipeline-activity': 'Pipeline Activity',
   '/integrations': 'Integrations',
+  '/feedback': 'Feedback',
 };
 
 export default function AppLayout() {

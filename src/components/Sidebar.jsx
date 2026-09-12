@@ -8,38 +8,36 @@ import {
   Plus,
   X,
   Activity,
-  Target,
+  MessageSquareHeart,
 } from 'lucide-react';
-import { cn, formatRelativeTime } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { Logo } from '@/components/Logo';
-import { useQuery } from '@tanstack/react-query';
-import { projectsApi, keywordsApi, scraperApi } from '@/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { keywordsApi, scraperApi } from '@/api';
 import { useAuth } from '@/lib/AuthContext';
-import { formatRelative } from 'date-fns';
+import { useProduct } from '@/lib/ProductContext';
 
 const navItems = [
   { to: '/queue', label: 'Action Queue', icon: ListChecks },
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/product-profile', label: 'Product Profile', icon: Zap },
-  { to: '/scraper-activity', label: 'Scraper Activity', icon: Activity },
+  { to: '/scraper-activity', label: 'Pipeline Activity', icon: Activity },
   { to: '/integrations', label: 'Integrations', icon: Plug },
+];
+
+const secondaryNavItems = [
+  { to: '/feedback', label: 'Feedback', icon: MessageSquareHeart },
 ];
 
 export default function Sidebar({ onNavigate }) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
+  const { activeProduct } = useProduct();
   const [adding, setAdding] = useState(false);
   const [newKeyword, setNewKeyword] = useState('');
 
-  // Fetch projects (we use the first one for keyword scope)
-  const { data: projects } = useQuery({
-    queryKey: ['projects'],
-    queryFn: () => projectsApi.list(),
-    enabled: !!user,
-  });
-
-  const activeProjectId = projects?.[0]?.id;
+  const activeProjectId = activeProduct?.id;
 
   const { data: keywords = [] } = useQuery({
     queryKey: ['keywords', activeProjectId],
@@ -47,9 +45,31 @@ export default function Sidebar({ onNavigate }) {
     enabled: !!activeProjectId,
   });
 
-  // Last run scraper/pipeline time // Fetching last 5 
-  const { data: runs = [], isLoading, refetch } = useQuery({
-    queryKey: ['scraper-runs'],
+  const addKeywordMutation = useMutation({
+    mutationFn: (keyword) =>
+      keywordsApi.create({
+        keyword,
+        keyword_type: 'include',
+        project_id: activeProjectId,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['keywords', activeProjectId] });
+    },
+    onError: (err) => console.error('Failed to add keyword', err),
+  });
+
+  const removeKeywordMutation = useMutation({
+    mutationFn: (id) => keywordsApi.remove(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['keywords', activeProjectId] });
+    },
+    onError: (err) => console.error('Failed to remove keyword', err),
+  });
+
+  // Last run pipeline time (consistent limit → consistent cache with the
+  // Pipeline Activity page; fixes the refresh mismatch bug)
+  const { data: runs = [] } = useQuery({
+    queryKey: ['scraper-runs', 5],
     queryFn: () => scraperApi.listRuns(5),
     refetchInterval: 30 * 1000,
   });
@@ -73,11 +93,7 @@ export default function Sidebar({ onNavigate }) {
   const handleAddKeyword = async () => {
     if (!newKeyword.trim() || !activeProjectId) return;
     try {
-      await keywordsApi.create({
-        keyword: newKeyword.trim(),
-        keyword_type: 'include',
-        project_id: activeProjectId,
-      });
+      await addKeywordMutation.mutateAsync(newKeyword.trim());
       setNewKeyword('');
     } catch (err) {
       console.error('Failed to add keyword', err);
@@ -85,14 +101,32 @@ export default function Sidebar({ onNavigate }) {
     setAdding(false);
   };
 
-  const handleRemoveKeyword = async (e, id) => {
+  const handleRemoveKeyword = (e, id) => {
     e.preventDefault();
     e.stopPropagation();
-    try {
-      await keywordsApi.remove(id);
-    } catch (err) {
-      console.error('Failed to remove keyword', err);
-    }
+    removeKeywordMutation.mutate(id);
+  };
+
+  const renderNavLink = (item) => {
+    const Icon = item.icon;
+    return (
+      <NavLink
+        key={item.to}
+        to={item.to}
+        onClick={onNavigate}
+        className={({ isActive }) =>
+          cn(
+            'group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-150',
+            isActive
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+          )
+        }
+      >
+        <Icon className="h-4 w-4 shrink-0" />
+        <span className="flex-1 truncate">{item.label}</span>
+      </NavLink>
+    );
   };
 
   return (
@@ -104,37 +138,17 @@ export default function Sidebar({ onNavigate }) {
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto scrollbar-thin">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          return (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={onNavigate}
-              className={({ isActive }) =>
-                cn(
-                  'group flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-150',
-                  isActive
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                )
-              }
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              <span className="flex-1 truncate">{item.label}</span>
-            </NavLink>
-          );
-        })}
+        {navItems.map(renderNavLink)}
 
         <div className="my-4 border-t border-border/60" />
 
-        {/* Tracked Keywords */}
+        {/* Tracked Keywords — scoped to the active product */}
         <div className="flex flex-col">
           <div className="flex items-center justify-between px-3 pb-2 pt-1">
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
               Tracked Keywords
             </p>
-            {!adding && (
+            {!!activeProjectId && !adding && (
               <button
                 className="text-muted-foreground hover:text-primary p-0.5 rounded transition"
                 onClick={() => setAdding(true)}
@@ -144,6 +158,12 @@ export default function Sidebar({ onNavigate }) {
               </button>
             )}
           </div>
+
+          {!activeProjectId && (
+            <p className="px-3 py-2 text-xs text-muted-foreground/70 italic">
+              Create a product to start tracking keywords.
+            </p>
+          )}
 
           {adding && (
             <div className="px-2 pb-2">
@@ -166,7 +186,7 @@ export default function Sidebar({ onNavigate }) {
           )}
 
           <div className="space-y-0.5 max-h-48 overflow-y-auto scrollbar-thin">
-            {keywords.length === 0 && !adding && (
+            {keywords.length === 0 && !adding && !!activeProjectId && (
               <p className="px-3 py-2 text-xs text-muted-foreground/70 italic">
                 No keywords yet — add one above.
               </p>
@@ -193,19 +213,31 @@ export default function Sidebar({ onNavigate }) {
         </div>
       </nav>
 
-      {/* Footer / upgrade prompt */}
-      <div className="mt-auto border-t border-border/60 p-4">
-        <div className="rounded-lg gradient-border p-3 text-xs text-center">
-          <p className="font-semibold text-foreground mb-1">Pipeline Active</p>
-          <p className="text-muted-foreground text-[11px] leading-snug">
-            {activeProjectId
-              ? (
-                lastRun?.started_at ? (
-                    `Next run in ${getNextRunMinutes(lastRun.started_at, 30)} minutes`
-                )
-              :'Next scrape batch runs within 30 minutes.')
-              : 'No project yet — create one to start scraping.'}
-          </p>
+      {/* Secondary nav (feedback) + footer */}
+      <div className="border-t border-border/60">
+        <nav className="px-3 py-2 space-y-1">{secondaryNavItems.map(renderNavLink)}</nav>
+
+        <div className="p-4 pt-2">
+          <div className="rounded-lg gradient-border p-3 text-xs text-center">
+            <p className="font-semibold text-foreground mb-1 flex items-center justify-center gap-1.5">
+              <span
+                className={cn(
+                  'h-1.5 w-1.5 rounded-full',
+                  activeProduct?.is_pipeline_active
+                    ? 'bg-emerald-500 animate-pulse'
+                    : 'bg-zinc-400'
+                )}
+              />
+              {activeProduct?.is_pipeline_active ? 'Pipeline Active' : 'Pipeline Paused'}
+            </p>
+            <p className="text-muted-foreground text-[11px] leading-snug">
+              {activeProduct?.is_pipeline_active
+                ? lastRun?.started_at
+                  ? `Next run in ${getNextRunMinutes(lastRun.started_at, 30)} minutes`
+                  : 'Next batch runs within 30 minutes.'
+                : 'Activate the pipeline to resume monitoring.'}
+            </p>
+          </div>
         </div>
       </div>
     </div>
