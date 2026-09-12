@@ -1,20 +1,26 @@
 /**
- * ProductProfile — edit the active project, manage keywords + sources.
+ * ProductProfile — edit the active product, manage keywords + sources,
+ * configure platforms. Multiple products are supported: pick the one you're
+ * editing from the TopBar switcher, and create new ones with the button here.
  */
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import {
   Zap,
   Plus,
   X,
   Save,
-  Check,
   Globe,
   Loader2,
-  Swords,
   Search,
   Trash2,
   Power,
+  Layers,
+  MessageCircle,
+  Twitter,
+  Linkedin,
+  Rocket,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,22 +28,30 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { projectsApi, keywordsApi, sourcesApi } from '@/api';
-import { useAuth } from '@/lib/AuthContext';
+import { useProduct } from '@/lib/ProductContext';
 import { toast } from '@/hooks/use-toast';
 import { toastApiError } from '@/api';
 import { cn } from '@/lib/utils';
 
-export default function ProductProfile() {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
+/**
+ * The platform catalog. Reddit is live today; the rest are wired into the
+ * product config (stored in `projects.platforms`) and will activate as
+ * their collectors ship — flipping one on later needs no schema change.
+ */
+const PLATFORM_CATALOG = [
+  { id: 'reddit', label: 'Reddit', icon: MessageCircle, available: true, hint: 'Posts + comments across subreddits and keyword search' },
+  { id: 'hacker_news', label: 'Hacker News', icon: Rocket, available: false, hint: 'Coming soon' },
+  { id: 'x', label: 'X / Twitter', icon: Twitter, available: false, hint: 'Coming soon' },
+  { id: 'linkedin', label: 'LinkedIn', icon: Linkedin, available: false, hint: 'Coming soon' },
+];
 
-  const { data: projects, isLoading } = useQuery({
-    queryKey: ['projects'],
-    queryFn: () => projectsApi.list(),
-    enabled: !!user,
-  });
-  const project = projects?.[0];
+export default function ProductProfile() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { products, activeProduct, loadingProjects, setActiveProduct } = useProduct();
+  const project = activeProduct;
 
   const [form, setForm] = useState({
     name: '',
@@ -47,6 +61,7 @@ export default function ProductProfile() {
     company_description: '',
     llm_threshold: 0.7,
     data_retention_days: 30,
+    platforms: ['reddit'],
   });
 
   useEffect(() => {
@@ -59,6 +74,7 @@ export default function ProductProfile() {
         company_description: project.company_description || '',
         llm_threshold: project.llm_threshold ?? 0.7,
         data_retention_days: project.data_retention_days ?? 30,
+        platforms: project.platforms?.length ? project.platforms : ['reddit'],
       });
     }
   }, [project]);
@@ -67,16 +83,16 @@ export default function ProductProfile() {
     mutationFn: (data) => projectsApi.update(project.id, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      toast({ title: 'Project updated' });
+      toast({ title: 'Product updated' });
     },
-    onError: (e) => toastApiError(e, 'Failed to update project'),
+    onError: (e) => toastApiError(e, 'Failed to update product'),
   });
 
   const activateMutation = useMutation({
     mutationFn: () => projectsApi.activate(project.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
-      toast({ title: 'Pipeline activated', description: 'First scrape runs within 30 minutes.' });
+      toast({ title: 'Pipeline activated', description: 'The next collection batch runs within 30 minutes.' });
     },
     onError: (e) => toastApiError(e),
   });
@@ -94,7 +110,23 @@ export default function ProductProfile() {
     updateMutation.mutate(form);
   };
 
-  if (isLoading) {
+  const togglePlatform = (platformId, enabled) => {
+    if (!enabled) {
+      // Never allow removing the last platform
+      if (form.platforms.length <= 1) {
+        toast({
+          title: 'At least one platform required',
+          description: 'A product must monitor at least one platform.',
+        });
+        return;
+      }
+      setForm({ ...form, platforms: form.platforms.filter((p) => p !== platformId) });
+    } else {
+      setForm({ ...form, platforms: [...form.platforms, platformId] });
+    }
+  };
+
+  if (loadingProjects) {
     return (
       <div className="flex justify-center py-20">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -105,12 +137,12 @@ export default function ProductProfile() {
   if (!project) {
     return (
       <div className="max-w-2xl mx-auto text-center py-20">
-        <h2 className="text-2xl font-bold mb-2">No active project</h2>
+        <h2 className="text-2xl font-bold mb-2">No products yet</h2>
         <p className="text-muted-foreground mb-6">
-          Create your first project to start configuring keywords and sources.
+          Create your first product to start configuring keywords, sources and platforms.
         </p>
-        <Button variant="gradient" onClick={() => (window.location.href = '/onboarding')}>
-          Set up a project
+        <Button variant="gradient" onClick={() => navigate('/onboarding')}>
+          Set up a product
         </Button>
       </div>
     );
@@ -118,34 +150,86 @@ export default function ProductProfile() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-xl font-bold tracking-tight">Product Profile</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            This is the brain of the system — everything downstream uses it.
+            This is the brain of the pipeline — everything downstream uses it.
           </p>
         </div>
-        {project.is_pipeline_active ? (
-          <Button
-            variant="outline"
-            onClick={() => deactivateMutation.mutate()}
-            disabled={deactivateMutation.isPending}
-          >
-            <Power className="h-4 w-4 text-red-500" /> Pause pipeline
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => navigate('/onboarding')} className="gap-1.5">
+            <Plus className="h-4 w-4" /> New product
           </Button>
-        ) : (
-          <Button
-            variant="gradient"
-            onClick={() => activateMutation.mutate()}
-            disabled={activateMutation.isPending}
-          >
-            <Power className="h-4 w-4" /> Activate pipeline
-          </Button>
-        )}
+          {project.is_pipeline_active ? (
+            <Button
+              variant="outline"
+              onClick={() => deactivateMutation.mutate()}
+              disabled={deactivateMutation.isPending}
+            >
+              <Power className="h-4 w-4 text-red-500" /> Pause pipeline
+            </Button>
+          ) : (
+            <Button
+              variant="gradient"
+              onClick={() => activateMutation.mutate()}
+              disabled={activateMutation.isPending}
+            >
+              <Power className="h-4 w-4" /> Activate pipeline
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Project basics */}
+      {/* All products overview — status at a glance, click to switch */}
+      {products.length > 1 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Layers className="h-4 w-4 text-primary" />
+              Your products ({products.length})
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Click a product to edit it — its pipeline status is shown live.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {products.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => setActiveProduct(p)}
+                className={cn(
+                  'flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-left transition',
+                  p.id === project.id
+                    ? 'border-primary/50 bg-primary/5'
+                    : 'border-border hover:bg-muted/40'
+                )}
+              >
+                <span
+                  className={cn(
+                    'h-2 w-2 shrink-0 rounded-full',
+                    p.is_pipeline_active ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-400'
+                  )}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">{p.name}</span>
+                  <span className="block text-[10px] text-muted-foreground">
+                    {p.is_pipeline_active ? 'Pipeline active' : 'Pipeline paused'}
+                  </span>
+                </span>
+                {(p.platforms || []).length > 0 && (
+                  <Badge variant="outline" className="text-[9px] shrink-0">
+                    {(p.platforms || ['reddit']).join(', ')}
+                  </Badge>
+                )}
+              </button>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <form onSubmit={handleSave} className="space-y-5">
+        {/* Project basics */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-sm">
@@ -173,9 +257,58 @@ export default function ProductProfile() {
                 required
               />
               <p className="mt-1.5 text-xs text-muted-foreground">
-                The matcher uses this to score semantic relevance.
+                The semantic matcher and the AI lead agent both use this to decide
+                what's relevant for this product.
               </p>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Platform configuration */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Globe className="h-4 w-4 text-primary" />
+              Platforms
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Choose where this product's pipeline pulls data from when active.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {PLATFORM_CATALOG.map((platform) => {
+              const Icon = platform.icon;
+              const enabled = form.platforms.includes(platform.id);
+              return (
+                <div
+                  key={platform.id}
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg border p-3 transition',
+                    enabled ? 'border-primary/50 bg-primary/5' : 'border-border',
+                    !platform.available && 'opacity-60'
+                  )}
+                >
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted shrink-0">
+                    <Icon className="h-4.5 w-4.5 h-4 w-4 text-primary" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium">{platform.label}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">{platform.hint}</p>
+                  </div>
+                  {platform.available ? (
+                    <Switch
+                      checked={enabled}
+                      onCheckedChange={(v) => togglePlatform(platform.id, v)}
+                      aria-label={`Toggle ${platform.label}`}
+                    />
+                  ) : (
+                    <Badge variant="secondary" className="text-[9px] shrink-0">
+                      Soon
+                    </Badge>
+                  )}
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
 
@@ -187,7 +320,7 @@ export default function ProductProfile() {
               Company info
             </CardTitle>
             <CardDescription className="text-xs">
-              Optional — but useful for LLM prompt context.
+              Optional — but useful for the AI agent's context.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -221,7 +354,7 @@ export default function ProductProfile() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label className="text-sm font-medium">
-                  LLM threshold ({form.llm_threshold.toFixed(2)})
+                  AI agent threshold ({form.llm_threshold.toFixed(2)})
                 </Label>
                 <Input
                   type="number"
@@ -232,6 +365,9 @@ export default function ProductProfile() {
                   onChange={(e) => setForm({ ...form, llm_threshold: parseFloat(e.target.value) })}
                   className="mt-1.5 h-10"
                 />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Posts scoring above this go to the LLM lead agent.
+                </p>
               </div>
               <div>
                 <Label className="text-sm font-medium">Data retention (days)</Label>
@@ -317,7 +453,7 @@ function KeywordsManager({ projectId }) {
           Keywords ({keywords.length})
         </CardTitle>
         <CardDescription className="text-xs">
-          Words and phrases Redarky searches for in posts.
+          Words and phrases the pipeline searches for in posts.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -429,7 +565,7 @@ function SourcesManager({ projectId }) {
           Sources ({sources.length})
         </CardTitle>
         <CardDescription className="text-xs">
-          Subreddits Redarky pulls latest posts from.
+          Subreddits the pipeline pulls latest posts from.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

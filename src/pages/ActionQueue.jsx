@@ -12,6 +12,8 @@ import {
   X,
   ChevronDown,
   ChevronUp,
+  CheckCircle2,
+  Clock,
 } from 'lucide-react';
 import {
   Card,
@@ -47,8 +49,9 @@ import {
   TabsTrigger,
   TabsContent,
 } from '@/components/ui/tabs';
-import { leadsApi, postsApi, projectsApi } from '@/api';
+import { leadsApi, postsApi } from '@/api';
 import { useAuth } from '@/lib/AuthContext';
+import { useProduct } from '@/lib/ProductContext';
 import { toast } from '@/hooks/use-toast';
 import {
   cn,
@@ -69,19 +72,16 @@ const LEAD_STATUSES = [
 
 export default function ActionQueue() {
   const { user } = useAuth();
+  const { activeProduct } = useProduct();
   const [intentThreshold, setIntentThreshold] = useState(50);
   const [onlyUnread, setOnlyUnread] = useState(false);
   const [activeTab, setActiveTab] = useState('all');
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState(null);
 
-  // Fetch projects → first project is the active one
-  const { data: projects } = useQuery({
-    queryKey: ['projects'],
-    queryFn: () => projectsApi.list(),
-    enabled: !!user,
-  });
-  const activeProjectId = projects?.[0]?.id;
+  // The active product comes from ProductContext — switchable from the TopBar
+  // switcher (and persisted), no longer hardcoded to projects[0]
+  const activeProjectId = activeProduct?.id;
 
   // Leads
   const {
@@ -181,6 +181,9 @@ export default function ActionQueue() {
           <div>
             <h2 className="text-xl font-bold tracking-tight">Action Queue</h2>
             <p className="text-xs text-muted-foreground mt-0.5">
+              {activeProduct?.name
+                ? `${activeProduct.name} · `
+                : ''}
               {rankedLeads.length} leads · {rankedPosts.length} potential matches
             </p>
           </div>
@@ -670,7 +673,7 @@ function DetailDialog({ selected, onClose, onStatusChange, onNotesChange }) {
           {/* Reason / snippet */}
           {isLead && item.llm_reason && (
             <div>
-              <p className="text-xs text-muted-foreground mb-1">LLM reason</p>
+              <p className="text-xs text-muted-foreground mb-1">AI agent verdict</p>
               <p className="text-sm bg-primary/5 border border-primary/20 rounded-md p-3">
                 {item.llm_reason}
               </p>
@@ -682,6 +685,28 @@ function DetailDialog({ selected, onClose, onStatusChange, onNotesChange }) {
               <p className="text-sm bg-muted/50 rounded-md p-3">{item.matched_snippet}</p>
             </div>
           )}
+
+          {/* Stage breakdown — how this post was scored */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-1.5">Score breakdown</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <StageChip
+                label="Keyword"
+                ok
+                detail={`"${(isLead ? item.matched_keyword : item.matched_keyword) || ''}"`}
+              />
+              <StageChip
+                label="Semantic"
+                ok={item.semantic_score != null}
+                detail={item.semantic_score != null ? `${intentToPercent(item.semantic_score)} similarity` : 'pending'}
+              />
+              <StageChip
+                label="AI agent"
+                ok={item.is_lead || item.is_processed_to_lead}
+                detail={item.llm_score != null ? `${intentToPercent(item.llm_score)} confidence` : (item.is_lead ? 'confirmed lead' : 'pending')}
+              />
+            </div>
+          </div>
 
           {/* Notes (lead only) */}
           {isLead && (
@@ -739,9 +764,31 @@ function EmptyState({ threshold }) {
       <h3 className="text-base font-semibold mb-1">Nothing to show</h3>
       <p className="text-xs text-muted-foreground max-w-sm mx-auto">
         No leads or matched posts at your current intent threshold ({threshold}).
-        Try lowering the threshold, or wait for the next scraper batch — runs
-        every 30 minutes.
+        Try lowering the threshold, or check back after the next monitoring
+        batch — the pipeline runs every 30 minutes.
       </p>
     </div>
+  );
+}
+
+function StageChip({ label, ok, detail }) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold',
+        ok
+          ? 'border-emerald-300/60 bg-emerald-100/60 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400'
+          : 'border-border bg-muted/50 text-muted-foreground'
+      )}
+      title={detail}
+    >
+      {ok ? (
+        <CheckCircle2 className="h-3 w-3" />
+      ) : (
+        <Clock className="h-3 w-3" />
+      )}
+      {label}
+      <span className="font-normal opacity-80">{detail}</span>
+    </span>
   );
 }
