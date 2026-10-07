@@ -85,6 +85,12 @@
   }
 }
 
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
 @layer components {
   .glass {
     @apply bg-card/70 backdrop-blur-xl border border-border/50;

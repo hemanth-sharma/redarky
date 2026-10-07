@@ -1,41 +1,46 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from './MotionFallback';
 import {
   ArrowRight,
   Sparkles,
-  Activity,
-  Target,
-  Search,
-  Zap,
-  ShieldCheck,
-  TrendingUp,
-  MessageSquare,
-  Bot,
-  Bell,
+  Loader2,
   CheckCircle2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Logo } from '@/components/Logo';
 import { useAuth } from '@/lib/AuthContext';
+import { toast } from '@/hooks/use-toast';
 
 export default function LandingHero() {
-  const { loginAsDemoUser, isLoadingAuth } = useAuth();
+  const { loginAsDemoUser } = useAuth();
+  const [demoLoading, setDemoLoading] = useState(false);
+  const navigate = useNavigate();
+
+  // 1-Click Direct Demo Login & Redirect
+  const handleDemoLogin = async (e) => {
+    e.preventDefault();
+    setDemoLoading(true);
+    try {
+      await loginAsDemoUser();
+      navigate('/dashboard', { replace: true });
+    } catch (err) {
+      toast({
+        title: 'Demo login failed',
+        description: err?.message || 'Backend may be unreachable',
+        variant: 'destructive',
+      });
+      setDemoLoading(false);
+    }
+  };
 
   const handleGetStarted = (e) => {
     e.preventDefault();
-    // Send them to /login where they can choose: Google, demo, or email+password
-    window.location.href = '/login?next=/dashboard';
+    navigate('/login?next=/dashboard');
   };
-  // Login Demo User and Redirect
-  const loginAsDemoUserAndRedirect = (e) => {
-    loginAsDemoUser();
-    e.preventDefault();
-    window.location.href = '/login?next=/dashboard';
-  }
 
   return (
-    <section className="relative overflow-hidden pt-20 pb-24 sm:pt-28 sm:pb-32">
+    /* Reduced padding-top from pt-20 sm:pt-28 to pt-10 sm:pt-14 to bring content higher up */
+    <section className="relative overflow-hidden pt-10 pb-24 sm:pt-14 sm:pb-32">
       {/* Decorative grid */}
       <div className="absolute inset-0 grid-bg opacity-30 [mask-image:radial-gradient(ellipse_at_top,black,transparent_70%)] pointer-events-none" />
 
@@ -48,7 +53,7 @@ export default function LandingHero() {
             transition={{ duration: 0.4 }}
             className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-medium text-primary"
           >
-            <Sparkles className="h-3.5 w-3.5" />
+            <Sparkles className="h-3.5 w-3.5 animate-pulse" />
             Find buyers before your competitors do
           </motion.div>
 
@@ -57,51 +62,68 @@ export default function LandingHero() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.05 }}
-            className="mt-6 text-4xl sm:text-6xl font-bold tracking-tight text-balance"
+            className="mt-4 sm:mt-6 text-4xl sm:text-6xl font-bold tracking-tight text-balance"
           >
             High-intent leads from{' '}
             <span className="gradient-text">social communities</span>
             <br className="hidden sm:block" /> — on autopilot.
           </motion.h1>
 
-          {/* Sub */}
+          {/* Subtitle */}
           <motion.p
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="mt-6 text-lg text-muted-foreground text-balance"
+            className="mt-4 sm:mt-6 text-lg text-muted-foreground text-balance"
           >
             Redarky scans Reddit in real-time, finds people actively looking to
             buy your competitor's product, and ranks them by buying intent —
             so your outbound actually converts.
           </motion.p>
 
-          {/* CTA */}
+          {/* Action CTAs */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.15 }}
             className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3"
           >
+            {/* Primary Green Glowing Demo Button */}
+            <button
+              type="button"
+              onClick={handleDemoLogin}
+              disabled={demoLoading}
+              className="group relative inline-flex w-full sm:w-auto items-center justify-center gap-2 overflow-hidden rounded-xl bg-emerald-600 px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-600/30 transition-all duration-300 hover:bg-emerald-500 hover:shadow-emerald-500/50 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-75 cursor-pointer z-10"
+            >
+              {/* Continuous Shimmer Effect */}
+              <span className="absolute inset-0 z-0 h-full w-full bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
+
+              <span className="relative z-10 flex items-center gap-2">
+                {demoLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-white" />
+                ) : (
+                  <Sparkles className="h-4 w-4 text-emerald-200" />
+                )}
+                {demoLoading ? 'Logging in…' : 'Try Live Demo Instantly'}
+              </span>
+            </button>
+
+            {/* Secondary Get Started Button */}
             <Button
               size="xl"
-              variant="gradient"
+              variant="outline"
               onClick={handleGetStarted}
-              className="group"
+              className="group w-full sm:w-auto"
             >
               Get Started
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Button>
-            <Button
-              size="xl"
-              variant="outline"
-              onClick={loginAsDemoUserAndRedirect}
-              disabled={isLoadingAuth}
-            >
-              <Sparkles className="h-4 w-4" />
-              Try the demo
-            </Button>
           </motion.div>
+
+          {/* Sub-CTA micro-copy */}
+          <p className="mt-3 text-xs font-medium text-muted-foreground">
+            ⚡ 1-click instant demo — No registration or credit card needed
+          </p>
 
           {/* Trust signals */}
           <motion.div
@@ -130,7 +152,7 @@ export default function LandingHero() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.25 }}
-          className="mt-16 sm:mt-20 relative max-w-5xl mx-auto"
+          className="mt-14 sm:mt-16 relative max-w-5xl mx-auto"
         >
           <div className="absolute inset-0 -z-10 blur-3xl opacity-50">
             <div className="absolute top-0 left-1/4 h-72 w-72 rounded-full bg-indigo-500/40" />
