@@ -112,7 +112,7 @@ export default function LandingHero() {
             <Button
               size="xl"
               variant="outline"
-              onClick={handleGetStarted}
+              onClick={handleDemoLogin} // Put handleGetStarted here later onPROD
               className="group w-full sm:w-auto"
             >
               Get Started
